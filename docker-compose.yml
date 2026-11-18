@@ -1,0 +1,77 @@
+# Production stack for a single EC2 host: MySQL + Go API + Next.js + Nginx (+ certbot).
+# Usage: cp .env.example .env && edit, then: docker compose up -d --build
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-rapidsale}
+      MYSQL_USER: ${DB_USER:-rapidsale}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--innodb-ft-min-token-size=2"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      UPLOAD_DIR: /app/uploads
+      PUBLIC_BASE_URL: https://${DOMAIN}
+      CORS_ORIGINS: https://${DOMAIN},https://www.${DOMAIN}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: /api
+        NEXT_PUBLIC_SITE_NAME: ${APP_NAME:-RapidSale}
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_URL: http://api:8080/api
+    depends_on:
+      - api
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/nginx/templates:/etc/nginx/templates:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
+    depends_on:
+      - api
+      - web
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["certbot"]
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+
+volumes:
+  mysql_data:
+  uploads:
+  certbot_www:
+  certbot_certs:

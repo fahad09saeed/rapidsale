@@ -1,0 +1,16 @@
+# Local development: only MySQL. Run the API with `go run ./cmd/api` and the web with `npm run dev`.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: rapidsale
+      MYSQL_USER: rapidsale
+      MYSQL_PASSWORD: rapidsale
+      MYSQL_ROOT_PASSWORD: root
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev:/var/lib/mysql
+volumes:
+  mysql_dev:

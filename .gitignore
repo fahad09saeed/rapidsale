@@ -1,0 +1,46 @@
+# ---- secrets / environment ----
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# ---- dependencies & build output ----
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Go ----
+backend/uploads/
+backend/bin/
+*.exe
+*.test
+coverage.out
+
+# ---- Expo / React Native ----
+mobile/.expo/
+mobile/android/
+mobile/ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.keystore
+
+# ---- deploy artifacts ----
+backups/
+*.tgz
+*.pem
+
+# ---- OS / editors ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
