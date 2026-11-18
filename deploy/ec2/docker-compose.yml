@@ -1,0 +1,76 @@
+# RapidSale on a SHARED EC2 host (Apache already owns :80/:443 and serves other sites).
+# Images are built from artifacts compiled off-server (see deploy/ec2/deploy.sh), so the host never compiles.
+# Everything binds to 127.0.0.1 only; Apache proxies https://<host>/rapidsale/ to it.
+name: rapidsale
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    env_file: ../../.env
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-rapidsale}
+      MYSQL_USER: ${DB_USER:-rapidsale}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD missing}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD missing}
+    # Tuned for a ~1 GB instance shared with other apps.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=64M
+      - --innodb-log-buffer-size=8M
+      - --performance-schema=OFF
+      - --max-connections=60
+      - --table-open-cache=256
+      - --skip-name-resolve
+      - --innodb-ft-min-token-size=2
+    mem_limit: 380m
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    build:
+      context: ./build/api
+      dockerfile: ../../api.Dockerfile
+    image: rapidsale-api:latest
+    restart: unless-stopped
+    env_file: ../../.env
+    environment:
+      PORT: "8080"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      UPLOAD_DIR: /app/uploads
+      TRUSTED_PROXIES: 127.0.0.1,172.16.0.0/12
+    ports:
+      - "127.0.0.1:8081:8080"
+    mem_limit: 128m
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+
+  web:
+    build:
+      context: ./build/web
+      dockerfile: ../../web.Dockerfile
+    image: rapidsale-web:latest
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_URL: http://api:8080/api
+      NODE_OPTIONS: --max-old-space-size=160
+    ports:
+      - "127.0.0.1:3001:3000"
+    mem_limit: 256m
+    depends_on:
+      - api
+
+volumes:
+  mysql_data:
+  uploads:

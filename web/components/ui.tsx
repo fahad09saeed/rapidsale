@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { STATUS_STYLES } from "@/lib/format";
 import { useAuth } from "./AuthProvider";
@@ -53,9 +53,10 @@ export function Pagination({ page, pages, onPage }: { page: number; pages: numbe
 export function RequireAuth({ children, permission }: { children: React.ReactNode; permission?: string }) {
   const { user, loading, can } = useAuth();
   const router = useRouter();
+  const pathname = usePathname(); // excludes basePath, so it is safe to pass to router.replace later
   useEffect(() => {
-    if (!loading && !user) router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
-  }, [loading, user, router]);
+    if (!loading && !user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+  }, [loading, user, router, pathname]);
   if (loading || !user) return <Spinner />;
   if (permission && !can(permission)) {
     return (

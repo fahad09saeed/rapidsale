@@ -29,14 +29,14 @@ func (h *Handler) AdminStats(c *gin.Context) {
 		Status string `json:"status"`
 		N      int64  `json:"count"`
 	}
-	var byStatus []statusCount
+	byStatus := []statusCount{}
 	h.DB.Model(&models.Listing{}).Select("status, COUNT(*) AS n").Group("status").Scan(&byStatus)
 
 	type dayCount struct {
 		Day string `json:"day"`
 		N   int64  `json:"count"`
 	}
-	var perDay []dayCount
+	perDay := []dayCount{}
 	h.DB.Model(&models.Listing{}).Unscoped().
 		Select("DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COUNT(*) AS n").
 		Where("created_at >= ?", time.Now().AddDate(0, 0, -14)).Group("day").Order("day").Scan(&perDay)
@@ -58,7 +58,7 @@ func (h *Handler) AdminStats(c *gin.Context) {
 			rootCounts[path[0].ID] += r.N
 		}
 	}
-	var topCats []catCount
+	topCats := []catCount{}
 	for id, n := range rootCounts {
 		if cat := h.Catalog.CategoryByID(id); cat != nil {
 			topCats = append(topCats, catCount{CategoryID: id, Name: cat.Name, N: n})
